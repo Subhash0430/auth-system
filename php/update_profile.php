@@ -9,9 +9,9 @@ use Predis\Client as RedisClient;
 use MongoDB\Client as MongoClient;
 
 
-// ==========================================
-// 1. GET SESSION TOKEN
-// ==========================================
+/* =========================
+   GET SESSION TOKEN
+========================= */
 
 $sessionToken = $_COOKIE['session_token'] ?? '';
 
@@ -24,43 +24,42 @@ if ($sessionToken === '') {
 }
 
 
-// ==========================================
-// 2. CONNECT TO REDIS AND GET USER ID
-// ==========================================
+/* =========================
+   CHECK SESSION USING REDIS
+========================= */
 
 try {
 
     $redisHost = getenv('REDIS_HOST');
 
     if (!$redisHost) {
-        throw new RuntimeException(
-            'Redis configuration is incomplete.'
-        );
+        throw new RuntimeException('Redis configuration is incomplete.');
     }
 
     $redis = new RedisClient([
         'scheme'   => getenv('REDIS_SCHEME') ?: 'tcp',
         'host'     => $redisHost,
         'port'     => (int)(getenv('REDIS_PORT') ?: 6379),
-        'password' => getenv('REDIS_PASSWORD') ?: null,
+        'password' => getenv('REDIS_PASSWORD') ?: null
     ]);
 
     $userId = $redis->get('session:' . $sessionToken);
 
 } catch (Exception $e) {
 
+    error_log('Redis error: ' . $e->getMessage());
+
     echo json_encode([
         'status' => 'error',
-        'message' => 'Session check failed: ' . $e->getMessage()
+        'message' => 'Session check failed.'
     ]);
-
     exit;
 }
 
 
-// ==========================================
-// 3. CHECK USER ID
-// ==========================================
+/* =========================
+   CHECK USER ID
+========================= */
 
 if (!$userId) {
 
@@ -73,18 +72,18 @@ if (!$userId) {
 }
 
 
-// ==========================================
-// 4. GET FORM DATA
-// ==========================================
+/* =========================
+   GET FORM DATA
+========================= */
 
 $name = trim($_POST['name'] ?? '');
 $age  = trim($_POST['age'] ?? '');
 $bio  = trim($_POST['bio'] ?? '');
 
 
-// ==========================================
-// 5. VALIDATE AGE
-// ==========================================
+/* =========================
+   VALIDATE AGE
+========================= */
 
 if ($age !== '') {
 
@@ -100,71 +99,82 @@ if ($age !== '') {
 }
 
 
-// ==========================================
-// 6. CONNECT TO MONGODB
-// ==========================================
+/* =========================
+   CONNECT TO MONGODB
+========================= */
 
 try {
 
     $mongoUri = getenv('MONGO_URI');
 
     if (!$mongoUri) {
-
         throw new RuntimeException(
-            'MongoDB configuration is incomplete. MONGO_URI is missing.'
+            'MongoDB configuration is incomplete.'
         );
     }
 
 
-    // Create MongoDB client
-    $mongoClient = new MongoClient($mongoUri);
+    $mongoClient = new MongoClient(
+        $mongoUri,
+        [
+            'tls' => true,
+            'tlsDisableOCSPEndpointCheck' => true,
+            'serverSelectionTimeoutMS' => 10000
+        ]
+    );
 
 
-    // Database name
-    $mongoDatabase = getenv('MONGO_DB_NAME') ?: 'auth_system';
+    /* =========================
+       DATABASE & COLLECTION
+    ========================= */
+
+    $mongoDatabase =
+        getenv('MONGO_DB_NAME') ?: 'auth_system';
+
+    $mongoCollection =
+        getenv('MONGO_COLLECTION') ?: 'profiles';
 
 
-    // Collection name
-    $mongoCollection = getenv('MONGO_COLLECTION') ?: 'profiles';
-
-
-    // Select collection
     $collection = $mongoClient
         ->selectDatabase($mongoDatabase)
         ->selectCollection($mongoCollection);
 
 
-    // ==========================================
-    // 7. UPDATE USER PROFILE
-    // ==========================================
+    /* =========================
+       UPDATE PROFILE
+    ========================= */
 
-    $result = $collection->updateOne(
+    $collection->updateOne(
 
-        // Find profile using logged-in user's ID
         [
             'user_id' => (int)$userId
         ],
 
-        // Update profile information
         [
             '$set' => [
+
                 'user_id' => (int)$userId,
-                'name'    => $name,
-                'age'     => $age !== '' ? (int)$age : null,
-                'bio'     => $bio
+
+                'name' => $name,
+
+                'age' => $age !== ''
+                    ? (int)$age
+                    : null,
+
+                'bio' => $bio
+
             ]
         ],
 
-        // Create profile if it doesn't already exist
         [
             'upsert' => true
         ]
     );
 
 
-    // ==========================================
-    // 8. SUCCESS RESPONSE
-    // ==========================================
+    /* =========================
+       SUCCESS RESPONSE
+    ========================= */
 
     echo json_encode([
         'status' => 'success',
@@ -173,16 +183,30 @@ try {
 
 } catch (Exception $e) {
 
+    /* =========================
+       ERROR LOG
+    ========================= */
 
-    // ==========================================
-    // 9. SHOW ACTUAL ERROR FOR DEBUGGING
-    // ==========================================
+    error_log(
+        'MongoDB update error: ' .
+        $e->getMessage()
+    );
+
 
     echo json_encode([
         'status' => 'error',
-        'message' => 'MongoDB update failed: ' . $e->getMessage()
+        'message' => 'MongoDB update failed: ' .
+                     $e->getMessage()
     ]);
 
+    exit;
 }
+
+
+/* =========================
+   CLOSE MYSQL
+========================= */
+
+$mysqli->close();
 
 ?>
