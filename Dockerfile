@@ -3,11 +3,10 @@ FROM php:8.2-apache
 # Install required packages
 RUN apt-get update && apt-get install -y \
     libssl-dev \
-    openssl \
     ca-certificates \
+    openssl \
     pkg-config \
     unzip \
-    git \
     && update-ca-certificates \
     && pecl install mongodb \
     && docker-php-ext-enable mongodb \
@@ -17,6 +16,7 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# Application directory
 WORKDIR /var/www/html
 
 # Copy project
@@ -36,7 +36,7 @@ RUN printf '%s\n' \
     'error_log=/proc/self/fd/2' \
     > /usr/local/etc/php/conf.d/production.ini
 
-# Apache rewrite
+# Enable Apache rewrite
 RUN a2enmod rewrite
 
 # Render port

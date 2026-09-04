@@ -8,26 +8,29 @@ require '../vendor/autoload.php';
 use Predis\Client as RedisClient;
 use MongoDB\Client as MongoClient;
 
+/*
+|--------------------------------------------------------------------------
+| Get session token
+|--------------------------------------------------------------------------
+*/
+
+$sessionToken = $_COOKIE['session_token'] ?? '';
+
+if ($sessionToken === '') {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Not logged in.'
+    ]);
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Connect to Redis and get user ID
+|--------------------------------------------------------------------------
+*/
+
 try {
-
-    /* =========================
-       GET SESSION TOKEN
-       ========================= */
-
-    $sessionToken = $_COOKIE['session_token'] ?? '';
-
-    if ($sessionToken === '') {
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'Not logged in.'
-        ]);
-        exit;
-    }
-
-
-    /* =========================
-       CONNECT TO REDIS
-       ========================= */
 
     $redisHost = getenv('REDIS_HOST');
 
@@ -39,114 +42,131 @@ try {
         'scheme'   => getenv('REDIS_SCHEME') ?: 'tcp',
         'host'     => $redisHost,
         'port'     => (int)(getenv('REDIS_PORT') ?: 6379),
-        'password' => getenv('REDIS_PASSWORD') ?: null,
+        'password' => getenv('REDIS_PASSWORD') ?: null
     ]);
 
     $userId = $redis->get('session:' . $sessionToken);
 
-    if (!$userId) {
+} catch (Exception $e) {
+
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Session check failed.'
+    ]);
+    exit;
+}
+
+if (!$userId) {
+
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Session expired. Please login again.'
+    ]);
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Get form data
+|--------------------------------------------------------------------------
+*/
+
+$name = trim($_POST['name'] ?? '');
+$age  = trim($_POST['age'] ?? '');
+$bio  = trim($_POST['bio'] ?? '');
+
+/*
+|--------------------------------------------------------------------------
+| Validate age
+|--------------------------------------------------------------------------
+*/
+
+if ($age !== '') {
+
+    if (!is_numeric($age)) {
+
         echo json_encode([
             'status' => 'error',
-            'message' => 'Session expired. Please login again.'
+            'message' => 'Age must be a number.'
         ]);
         exit;
     }
 
+    $age = (int)$age;
 
-    /* =========================
-       GET FORM DATA
-       ========================= */
+    if ($age < 1 || $age > 120) {
 
-    $name = trim($_POST['name'] ?? '');
-    $age  = trim($_POST['age'] ?? '');
-    $bio  = trim($_POST['bio'] ?? '');
-
-
-    /* =========================
-       VALIDATE AGE
-       ========================= */
-
-    if ($age !== '') {
-
-        if (!is_numeric($age)) {
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'Age must be a number.'
-            ]);
-            exit;
-        }
-
-        $age = (int)$age;
-
-        if ($age < 1 || $age > 120) {
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'Please enter a valid age between 1 and 120.'
-            ]);
-            exit;
-        }
-
-    } else {
-        $age = null;
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Please enter a valid age between 1 and 120.'
+        ]);
+        exit;
     }
+} else {
+    $age = null;
+}
 
+/*
+|--------------------------------------------------------------------------
+| MongoDB connection
+|--------------------------------------------------------------------------
+*/
 
-    /* =========================
-       MONGODB URI
-       ========================= */
+try {
 
     $mongoUri = getenv('MONGO_URI');
 
     if (!$mongoUri) {
-        throw new Exception('MONGO_URI is missing in Render environment variables.');
+        throw new Exception('MONGO_URI is missing.');
     }
 
     /*
-     * Remove accidental spaces and quotes
+     * Remove accidental spaces, quotes and backslashes
      * from Render environment variable.
      */
     $mongoUri = trim($mongoUri);
-    $mongoUri = trim($mongoUri, "\"'");
-    $mongoUri = trim($mongoUri);
 
+    $mongoUri = trim($mongoUri, "\"'");
+
+    // Fix accidental leading backslash
+    $mongoUri = ltrim($mongoUri, '\\');
 
     /*
-     * Make sure URI starts correctly.
+     * MongoDB URI must start with mongodb://
+     * or mongodb+srv://
      */
     if (
-        !str_starts_with($mongoUri, 'mongodb://') &&
-        !str_starts_with($mongoUri, 'mongodb+srv://')
+        strpos($mongoUri, 'mongodb://') !== 0 &&
+        strpos($mongoUri, 'mongodb+srv://') !== 0
     ) {
-        throw new Exception(
-            'Invalid MONGO_URI. It must start with mongodb:// or mongodb+srv://'
-        );
+        throw new Exception('Invalid MONGO_URI format.');
     }
 
-
-    /* =========================
-       CONNECT TO MONGODB
-       ========================= */
-
+    /*
+     * Create MongoDB client
+     */
     $mongoClient = new MongoClient(
         $mongoUri,
         [
             'tls' => true,
+            'tlsCAFile' => '/etc/ssl/certs/ca-certificates.crt',
             'serverSelectionTimeoutMS' => 10000,
             'connectTimeoutMS' => 10000
         ]
     );
 
-
-    /* =========================
-       DATABASE
-       ========================= */
-
+    /*
+     * Database name
+     */
     $mongoDatabase = getenv('MONGO_DB_NAME');
 
     if (!$mongoDatabase) {
         $mongoDatabase = 'auth_system';
     }
 
+    /*
+     * Collection name
+     */
     $mongoCollection = getenv('MONGO_COLLECTION');
 
     if (!$mongoCollection) {
@@ -157,17 +177,13 @@ try {
         ->selectDatabase($mongoDatabase)
         ->selectCollection($mongoCollection);
 
-
-    /* =========================
-       UPDATE PROFILE
-       ========================= */
-
+    /*
+     * Update profile
+     */
     $result = $collection->updateOne(
-
         [
             'user_id' => (int)$userId
         ],
-
         [
             '$set' => [
                 'user_id' => (int)$userId,
@@ -177,39 +193,41 @@ try {
                 'updated_at' => new MongoDB\BSON\UTCDateTime()
             ]
         ],
-
         [
             'upsert' => true
         ]
-
     );
 
-
-    /* =========================
-       SUCCESS
-       ========================= */
-
+    /*
+     * Success
+     */
     echo json_encode([
         'status' => 'success',
         'message' => 'Profile updated successfully.'
     ]);
 
-} catch (Throwable $e) {
+} catch (Exception $e) {
 
     /*
-     * Log complete error to Render logs
+     * Log actual error to Render logs
+     * without showing sensitive database details
+     * to the browser.
      */
+
     error_log(
-        'PROFILE UPDATE ERROR: ' .
-        $e->getMessage()
+        'MongoDB update error: ' . $e->getMessage()
     );
 
-    /*
-     * Send useful error to browser
-     */
     echo json_encode([
         'status' => 'error',
-        'message' => 'MongoDB update failed: ' . $e->getMessage()
+        'message' => 'MongoDB update failed. Check Render logs.'
     ]);
 }
+
+$stmt = null;
+
+if (isset($mysqli) && $mysqli) {
+    $mysqli->close();
+}
+
 ?>
