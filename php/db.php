@@ -1,9 +1,8 @@
 <?php
-// Database connection settings
-$host = 'localhost';
-$db   = 'auth_system';
-$user = 'root';
-$pass = '';       // XAMPP's default MySQL root password is blank
+$host = getenv('DB_HOST') ?: 'localhost';
+$db   = getenv('DB_NAME') ?: 'auth_system';
+$user = getenv('DB_USER') ?: 'root';
+$pass = getenv('DB_PASS') ?: '';
 
 $mysqli = new mysqli($host, $user, $pass, $db);
 

@@ -5,7 +5,6 @@ require '../vendor/autoload.php';
 use Predis\Client as RedisClient;
 use MongoDB\Client as MongoClient;
 
-// ---- Step 1: Verify session (same check as profile.php) ----
 $sessionToken = $_COOKIE['session_token'] ?? '';
 
 if ($sessionToken === '') {
@@ -16,8 +15,8 @@ if ($sessionToken === '') {
 try {
     $redis = new RedisClient([
         'scheme' => 'tcp',
-        'host'   => '127.0.0.1',
-        'port'   => 6379,
+        'host'   => getenv('REDIS_HOST') ?: '127.0.0.1',
+        'port'   => getenv('REDIS_PORT') ?: 6379,
     ]);
     $userId = $redis->get('session:' . $sessionToken);
 } catch (Exception $e) {
@@ -30,20 +29,17 @@ if (!$userId) {
     exit;
 }
 
-// ---- Step 2: Get and clean the submitted data ----
 $name = trim($_POST['name'] ?? '');
 $age  = trim($_POST['age'] ?? '');
 $bio  = trim($_POST['bio'] ?? '');
 
-// basic validation
 if ($age !== '' && (!is_numeric($age) || $age < 1 || $age > 120)) {
     echo json_encode(['status' => 'error', 'message' => 'Please enter a valid age.']);
     exit;
 }
 
-// ---- Step 3: Save to MongoDB (create if new, update if exists) ----
 try {
-    $mongoClient = new MongoClient("mongodb://localhost:27017");
+    $mongoClient = new MongoClient(getenv('MONGO_URI') ?: "mongodb://localhost:27017");
     $collection = $mongoClient->auth_system->profiles;
 
     $collection->updateOne(
@@ -54,7 +50,7 @@ try {
             'age'     => $age !== '' ? (int)$age : null,
             'bio'     => $bio
         ]],
-        ['upsert' => true] // create the document if it doesn't already exist
+        ['upsert' => true]
     );
 
     echo json_encode(['status' => 'success', 'message' => 'Profile updated successfully.']);
