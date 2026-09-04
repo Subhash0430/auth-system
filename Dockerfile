@@ -1,38 +1,45 @@
-FROM php:8.2-apache-bookworm
+FROM php:8.2-apache
 
+# Install required packages
 RUN apt-get update && apt-get install -y \
     libssl-dev \
-    ca-certificates \
     openssl \
+    ca-certificates \
     pkg-config \
     unzip \
     git \
-    && pecl install mongodb-2.5.2 \
+    && update-ca-certificates \
+    && pecl install mongodb \
     && docker-php-ext-enable mongodb \
     && docker-php-ext-install mysqli \
-    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
+# Copy project
 COPY . /var/www/html/
 
+# Install PHP dependencies
 RUN composer install \
     --no-dev \
     --no-interaction \
     --prefer-dist \
     --optimize-autoloader
 
+# PHP production settings
 RUN printf '%s\n' \
     'display_errors=Off' \
     'log_errors=On' \
     'error_log=/proc/self/fd/2' \
     > /usr/local/etc/php/conf.d/production.ini
 
+# Apache rewrite
 RUN a2enmod rewrite
 
+# Render port
 ENV PORT=10000
 
 EXPOSE 10000
