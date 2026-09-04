@@ -1,0 +1,27 @@
+# Composer dependencies
+/vendor/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime files
+*.log
+/logs/
+/uploads/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# PHP tooling caches
+.phpunit.result.cache
+.php-cs-fixer.cache

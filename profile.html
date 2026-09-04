@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profile</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-light">
+
+<div class="container d-flex justify-content-center align-items-center" style="min-height: 100vh;">
+  <div class="card p-4 shadow" style="width: 100%; max-width: 500px;">
+    <h3 class="text-center mb-4">My Profile</h3>
+
+    <div id="profileMessage"></div>
+
+    <div id="profileContent" style="display:none;">
+      <p><strong>Username:</strong> <span id="profUsername"></span></p>
+      <p><strong>Email:</strong> <span id="profEmail"></span></p>
+      <p><strong>Name:</strong> <span id="profName">Not set</span></p>
+      <p><strong>Age:</strong> <span id="profAge">Not set</span></p>
+      <p><strong>Bio:</strong> <span id="profBio">Not set</span></p>
+
+      <button id="editProfileBtn" class="btn btn-outline-primary w-100 mb-2">Edit Profile</button>
+      <button id="logoutBtn" class="btn btn-danger w-100">Logout</button>
+
+      <form id="editProfileForm" class="mt-4" style="display:none;">
+        <hr>
+        <h5 class="mb-3">Update Profile Info</h5>
+
+        <div id="editMessage"></div>
+
+        <div class="mb-3">
+          <label for="editName" class="form-label">Name</label>
+          <input type="text" class="form-control" id="editName" name="name">
+        </div>
+
+        <div class="mb-3">
+          <label for="editAge" class="form-label">Age</label>
+          <input type="number" class="form-control" id="editAge" name="age" min="1" max="120">
+        </div>
+
+        <div class="mb-3">
+          <label for="editBio" class="form-label">Bio</label>
+          <textarea class="form-control" id="editBio" name="bio" rows="3"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-success w-100">Save</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="js/profile.js"></script>
+
+</body>
+</html>
