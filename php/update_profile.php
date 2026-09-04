@@ -13,12 +13,17 @@ if ($sessionToken === '') {
 }
 
 try {
+   $redisHost = getenv('REDIS_HOST');
+   if (!$redisHost) {
+       throw new RuntimeException('Redis configuration is incomplete.');
+   }
+
    $redis = new RedisClient([
-    'scheme'   => 'tcp',
-    'host'     => getenv('REDIS_HOST') ?: '127.0.0.1',
-    'port'     => getenv('REDIS_PORT') ?: 6379,
-    'password' => getenv('REDIS_PASSWORD') ?: null,
-]);
+        'scheme'   => getenv('REDIS_SCHEME') ?: 'tcp',
+        'host'     => $redisHost,
+        'port'     => (int)(getenv('REDIS_PORT') ?: 6379),
+        'password' => getenv('REDIS_PASSWORD') ?: null,
+    ]);
     $userId = $redis->get('session:' . $sessionToken);
 } catch (Exception $e) {
     echo json_encode(['status' => 'error', 'message' => 'Session check failed.']);
@@ -40,8 +45,14 @@ if ($age !== '' && (!is_numeric($age) || $age < 1 || $age > 120)) {
 }
 
 try {
-    $mongoClient = new MongoClient(getenv('MONGO_URI') ?: "mongodb://localhost:27017");
-    $collection = $mongoClient->auth_system->profiles;
+    $mongoUri = getenv('MONGO_URI');
+    if (!$mongoUri) {
+        throw new RuntimeException('MongoDB configuration is incomplete.');
+    }
+    $mongoClient = new MongoClient($mongoUri);
+    $mongoDatabase = getenv('MONGO_DB_NAME') ?: 'auth_system';
+    $mongoCollection = getenv('MONGO_COLLECTION') ?: 'profiles';
+    $collection = $mongoClient->{$mongoDatabase}->{$mongoCollection};
 
     $collection->updateOne(
         ['user_id' => (int)$userId],

@@ -1,24 +1,40 @@
 <?php
-$host = getenv('DB_HOST') ?: 'localhost';
-$db   = getenv('DB_NAME') ?: 'auth_system';
-$user = getenv('DB_USER') ?: 'root';
+mysqli_report(MYSQLI_REPORT_OFF);
+
+$host = getenv('DB_HOST');
+$db = getenv('DB_NAME') ?: 'auth_system';
+$user = getenv('DB_USER');
 $pass = getenv('DB_PASS') ?: '';
-$port = getenv('DB_PORT') ?: 3306;
+$port = (int)(getenv('DB_PORT') ?: 3306);
 
-$mysqli = mysqli_init();
-
-// Use SSL if connecting to a cloud host (Aiven requires it)
-if (getenv('DB_HOST')) {
-    $mysqli->ssl_set(null, null, null, null, null);
-    $mysqli->real_connect($host, $user, $pass, $db, $port, null, MYSQLI_CLIENT_SSL);
-} else {
-    $mysqli = new mysqli($host, $user, $pass, $db, $port);
+if (!$host || !$user) {
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'error', 'message' => 'Database configuration is incomplete.']);
+    exit;
 }
 
-if ($mysqli->connect_error) {
-    die(json_encode([
-        'status' => 'error',
-        'message' => 'Database connection failed.'
-    ]));
+$mysqli = mysqli_init();
+$sslMode = strtolower((string)(getenv('DB_SSL') ?: 'required'));
+$useSsl = !in_array($sslMode, ['disabled', 'false', '0', 'off'], true);
+
+if ($useSsl) {
+    $mysqli->ssl_set(
+        getenv('DB_SSL_KEY') ?: null,
+        getenv('DB_SSL_CERT') ?: null,
+        getenv('DB_SSL_CA') ?: null,
+        null,
+        null
+    );
+}
+
+$flags = $useSsl ? MYSQLI_CLIENT_SSL : 0;
+$mysqli->real_connect($host, $user, $pass, $db, $port, null, $flags);
+
+if ($mysqli->connect_errno) {
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['status' => 'error', 'message' => 'Database connection failed.']);
+    exit;
 }
 ?>

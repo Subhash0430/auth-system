@@ -48,12 +48,16 @@ $(document).ready(function () {
       dataType: 'json',
       success: function (response) {
         if (response.status === 'success') {
-          $('#editMessage').html('<div class="alert alert-success">' + response.message + '</div>');
+          $('#editMessage').empty().append(
+            $('<div>', { class: 'alert alert-success' }).text(response.message)
+          );
           $('#profName').text(name || 'Not set');
           $('#profAge').text(age || 'Not set');
           $('#profBio').text(bio || 'Not set');
         } else {
-          $('#editMessage').html('<div class="alert alert-danger">' + response.message + '</div>');
+          $('#editMessage').empty().append(
+            $('<div>', { class: 'alert alert-danger' }).text(response.message)
+          );
         }
       },
       error: function () {

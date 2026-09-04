@@ -18,8 +18,8 @@ $(document).ready(function () {
       dataType: 'json',
       success: function (response) {
         if (response.status === 'success') {
-          $('#loginMessage').html(
-            '<div class="alert alert-success">' + response.message + '</div>'
+          $('#loginMessage').empty().append(
+            $('<div>', { class: 'alert alert-success' }).text(response.message)
           );
 
           setTimeout(function () {
@@ -27,8 +27,8 @@ $(document).ready(function () {
           }, 1000);
 
         } else {
-          $('#loginMessage').html(
-            '<div class="alert alert-danger">' + response.message + '</div>'
+          $('#loginMessage').empty().append(
+            $('<div>', { class: 'alert alert-danger' }).text(response.message)
           );
         }
       },

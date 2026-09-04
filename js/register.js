@@ -24,8 +24,8 @@ $(document).ready(function () {
       dataType: 'json',
       success: function (response) {
         if (response.status === 'success') {
-          $('#registerMessage').html(
-            '<div class="alert alert-success">' + response.message + '</div>'
+          $('#registerMessage').empty().append(
+            $('<div>', { class: 'alert alert-success' }).text(response.message)
           );
           // clear the form
           $('#registerForm')[0].reset();
@@ -36,8 +36,8 @@ $(document).ready(function () {
           }, 1500);
 
         } else {
-          $('#registerMessage').html(
-            '<div class="alert alert-danger">' + response.message + '</div>'
+          $('#registerMessage').empty().append(
+            $('<div>', { class: 'alert alert-danger' }).text(response.message)
           );
         }
       },

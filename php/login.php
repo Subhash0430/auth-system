@@ -33,12 +33,17 @@ if (!password_verify($password, $user['password'])) {
 $sessionToken = bin2hex(random_bytes(32));
 
 try {
+    $redisHost = getenv('REDIS_HOST');
+    if (!$redisHost) {
+        throw new RuntimeException('Redis configuration is incomplete.');
+    }
+
     $redis = new RedisClient([
-    'scheme'   => 'tcp',
-    'host'     => getenv('REDIS_HOST') ?: '127.0.0.1',
-    'port'     => getenv('REDIS_PORT') ?: 6379,
-    'password' => getenv('REDIS_PASSWORD') ?: null,
-]);
+        'scheme'   => getenv('REDIS_SCHEME') ?: 'tcp',
+        'host'     => $redisHost,
+        'port'     => (int)(getenv('REDIS_PORT') ?: 6379),
+        'password' => getenv('REDIS_PASSWORD') ?: null,
+    ]);
 
     $redis->setex('session:' . $sessionToken, 3600, $user['id']);
 
@@ -47,7 +52,13 @@ try {
     exit;
 }
 
-setcookie('session_token', $sessionToken, time() + 3600, '/');
+setcookie('session_token', $sessionToken, [
+    'expires' => time() + 3600,
+    'path' => '/',
+    'secure' => ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https' || getenv('COOKIE_SECURE') === 'true'),
+    'httponly' => true,
+    'samesite' => getenv('COOKIE_SAMESITE') ?: 'Lax',
+]);
 
 echo json_encode([
     'status' => 'success',
